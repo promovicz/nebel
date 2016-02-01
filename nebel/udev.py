@@ -1,21 +1,25 @@
 from __future__ import absolute_import
 
+import logging
+
 import pyudev
 import pyudev.glib
+
+LOG = logging.getLogger("nebel.udev")
 
 class UDevDevice:
     def __init__(self, path):
         self.path = path
 
     def added(self, device):
-        print("dev add %s" % device.device_path)
+        LOG.info("dev add %s" % device.device_path)
         self.update(device)
 
     def update(self, device):
-        print("dev upd %s" % device.device_path)
+        LOG.info("dev upd %s" % device.device_path)
 
     def removed(self, device):
-        print("dev rem %s" % device.device_path)
+        LOG.info("dev rem %s" % device.device_path)
 
 class UDevMonitor:
     def __init__(self):
@@ -27,8 +31,8 @@ class UDevMonitor:
         self.monitor.start()
 
     def dev_event(self, observer, action, device):
-        #print('event {0} on type {1} device {2}'
-        #      .format(device.action, device.device_type, device.device_path))
+        LOG.debug('event {0} on type {1} device {2}'
+                 .format(device.action, device.device_type, device.device_path))
         path = device.device_path
         if action == 'add' or action == 'change':
             self.dev_add_change(path, device)

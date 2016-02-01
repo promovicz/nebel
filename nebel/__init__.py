@@ -1,2 +1,2 @@
 
-__all__ = ["dbus", "udev", "upower", "urfkill"]
+__all__ = ["dbus", "udev", "udisks", "upower", "urfkill"]
