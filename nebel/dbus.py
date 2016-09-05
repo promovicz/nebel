@@ -41,21 +41,23 @@ class DbusObject:
         self.log.info("removed %s" % self.path)
 
     def update(self):
-        self.log.debug("update %s" % self.path)
+        self.log.debug("updating %s" % self.path)
 
     def update_prop(self, iface, name, conv):
-        raw = self.props.Get(iface, name)
+        raw = self.props.Get(iface, name, byte_arrays=True)
         new = conv(raw)
+        if conv == str:
+            new = new.rstrip('\0')
         setattr(self, name, new)
-        self.log.debug("%s: property %s.%s = %s" % (str(self.path), iface, name, new))
+        self.log.debug("property %s.%s = %s" % (iface, name, new))
 
-    def renotify(self, name, summary, timeout=1000, urgency=notify.URGENCY_LOW):
-        self.log.info("renotify %s urgency %s timeout %s summary \"%s\"" % (name, urgency, timeout, summary))
+    def renotify(self, name, summary, message='', timeout=1000, urgency=notify.URGENCY_LOW):
+        self.log.info("renotify %s urgency %s timeout %s summary \"%s\" message \"%s\"" % (name, urgency, timeout, summary, message))
         if name in self.notifs:
             n = self.notifs[name]
-            n.update(summary)
+            n.update(summary, message)
         else:
-            n = notify.Notification(summary)
+            n = notify.Notification(summary, message)
             self.notifs[name] = n
         n.set_timeout(timeout)
         n.set_urgency(urgency)
@@ -63,18 +65,80 @@ class DbusObject:
         return n
 
     def recancel(self, name):
-        self.log.info("recancel %s")
+        self.log.info("recancel %s" % name)
         n = None
         if name in self.notifs:
             n = self.notifs[name]
-            n.cancel()
+            n.close()
             del self.notifs[name]
         return n
 
-class DbusPropsObject(DbusObject):
+class DbusObjectManager(DbusObject):
 
     def __init__(self, dest, path, ifaces, log=None):
-        DbusObject.__init__(self, dest, path, ifaces, log = log)
+        DbusObject.__init__(self, dest, path, ifaces, log)
+        self.objman = dbus.Interface(self.obj, DBUS_OBJECT_MANAGER)
+        self.objs = dict()
+
+    def added(self):
+        DbusObject.added(self)
+        self.connect_ifs()
+        self.enumerate()
+
+    def removed(self):
+        DbusObject.removed(self)
+        self.disconnect_ifs()
+
+    def enumerate(self):
+        objs = self.objman.GetManagedObjects()
+        for obj in objs:
+            self.ifs_added(obj, objs[obj])
+
+    def ifs_added(self, path, ifprops):
+        self.log.debug("ifaces added %s: %r" % (path, ifprops))
+        obj = None
+        new = False
+        if not path in self.objs:
+            new = True
+            obj = self.obj_instantiate(path, ifprops)
+            if obj != None:
+                self.objs[path] = obj
+        else:
+            obj = self.objs[path]
+        if obj != None:
+            if new:
+                obj.added()
+            obj.ifs_added(ifprops)
+
+    def ifs_removed(self, path, difs):
+        self.log.debug("ifaces removed %s: %r" % (path, difs))
+        obj = None
+        if path in self.objs:
+            obj = self.objs[path]
+            del self.objs[path]
+            self.obj_destroy(obj, difs)
+            # XXX strictly incorrect
+            obj.removed()
+
+    def obj_instantiate(self, path, ifprops):
+        return None
+
+    def obj_destroy(self, obj, difs):
+        pass
+
+    def connect_ifs(self):
+        self.sigadd = self.objman.connect_to_signal("InterfacesAdded", self.ifs_added)
+        self.sigdel = self.objman.connect_to_signal("InterfacesRemoved", self.ifs_removed)
+
+    def disconnect_ifs(self):
+        if self.sigadd != None:
+            self.sigadd.remove()
+            self.sigadd = None
+        if self.sigdel != None:
+            self.sigdel.remove()
+            self.sigdel = None
+
+class DbusPropsObject(DbusObject):
 
     def added(self):
         DbusObject.added(self)
@@ -93,7 +157,7 @@ class DbusPropsObject(DbusObject):
             self.sigpchg = None
 
     def props_changed(self, interface, changed, invalidated):
-        self.log.debug("props changed %s interface %r (changed %r, invalidated %r)"
+        self.log.debug("props changed %s: %r (changed %r, invalidated %r)"
                        % (self.path, interface, changed, invalidated))
         for iface in self.ifaces:
             if interface == iface:
