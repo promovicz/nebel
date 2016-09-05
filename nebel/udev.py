@@ -16,7 +16,9 @@ class UDevDevice:
         self.update(device)
 
     def update(self, device):
-        LOG.info("dev upd %s" % device.device_path)
+        LOG.info("dev upd %s type %s subsystem %s driver %s" %
+                 (device.device_path, device.device_type,
+                  device.subsystem, device.driver))
 
     def removed(self, device):
         LOG.info("dev rem %s" % device.device_path)
@@ -32,7 +34,7 @@ class UDevMonitor:
 
     def dev_event(self, observer, action, device):
         LOG.debug('event {0} on type {1} device {2}'
-                 .format(device.action, device.device_type, device.device_path))
+                  .format(device.action, device.device_type, device.device_path))
         path = device.device_path
         if action == 'add' or action == 'change':
             self.dev_add_change(path, device)

@@ -14,7 +14,7 @@ main = glib.MainLoop()
 
 notify.init("nebel")
 
-#udev = nebel.udev.UDevMonitor()
+udev = nebel.udev.UDevMonitor()
 disks = nebel.udisks.DiskMonitor()
 power = nebel.upower.PowerMonitor()
 rfkill = nebel.urfkill.RfkillMonitor()
