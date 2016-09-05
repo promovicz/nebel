@@ -6,8 +6,8 @@ import nebel.udisks
 import nebel.upower
 import nebel.urfkill
 
-LOG_LEVEL = logging.DEBUG
-LOG_FORMAT = '%(asctime)-15s [%(name)-15s] %(message)s'
+LOG_LEVEL = logging.INFO
+LOG_FORMAT = '%(asctime)-15s [%(name)-15s] %(levelname)s: %(message)s'
 logging.basicConfig(level=LOG_LEVEL, format=LOG_FORMAT)
 
 main = glib.MainLoop()
